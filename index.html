@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pokédex - PokeAPI</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1724;
+      --accent:#ffcb05;
+      --muted:#9aa6b2;
+      --glass: rgba(255,255,255,0.03);
+      --success: #4caf50;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#071124 0%,#081426 50%,#0b1220 100%);
+      color:#e6eef6;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:28px;
+      gap:20px;
+    }
+    .app {
+      width:100%;
+      max-width:1100px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;
+      padding:20px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+      min-height: 70vh;
+    }
+    header {
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:12px;
+    }
+    h1{font-size:1.25rem;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:0.95rem}
+    .controls{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .search {
+      display:flex;
+      gap:8px;
+      align-items:center;
+      background:var(--glass);
+      padding:8px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.03);
+      min-width:260px;
+    }
+    .search input{
+      background:transparent;border:0;outline:0;color:inherit;
+      font-size:1rem;width:220px;
+    }
+    .btn {
+      background:var(--accent); color:#072435; border:0;padding:10px 14px;border-radius:9px;
+      font-weight:700;cursor:pointer; box-shadow:0 6px 14px rgba(255,203,5,0.12);
+    }
+    .per-page {
+      display:flex;gap:6px;align-items:center;color:var(--muted)
+    }
+    main {
+      margin-top:16px;
+    }
+    .grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px,1fr));
+      gap:16px;
+      margin-bottom:18px;
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.03);
+      display:flex;flex-direction:column;gap:10px;align-items:center;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .card:hover{transform:translateY(-6px);box-shadow:0 14px 40px rgba(2,6,23,0.6)}
+    .poke-img {
+      width:110px;height:110px;display:grid;place-items:center;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:10px;padding:8px;
+    }
+    .poke-name {
+      text-transform: capitalize;font-weight:700;color:#fff;
+    }
+    .poke-id {color:var(--muted);font-size:0.85rem;margin-top:-6px}
+    .pagination {
+      display:flex;gap:8px;align-items:center;justify-content:center;margin-top:8px;flex-wrap:wrap;
+    }
+    .page-btn {
+      background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer;
+    }
+    .page-btn.active{background:var(--accent);color:#072435;border:0;font-weight:800}
+    .page-btn:disabled{opacity:.45;cursor:not-allowed}
+    .footer-note {color:var(--muted);text-align:center;margin-top:12px;font-size:0.9rem}
+    @media (max-width:520px){
+      .search input{width:120px}
+    }
+    .spinner {
+      width:36px;height:36px;border-radius:50%;border:4px solid rgba(255,255,255,0.08);
+      border-top-color:var(--accent); animation:spin 1s linear infinite; margin:auto;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .message {text-align:center;color:var(--muted);padding:14px}
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Pokédex - PokeAPI">
+    <header>
+      <div>
+        <h1>Pokédex</h1>
+        <p class="lead">Listado de Pokémon (API: pokeapi.co) — haz clic en la imagen para abrirla en otra pestaña</p>
+      </div>
+      <div class="controls" role="region" aria-label="Controles">
+        <div class="search" title="Buscar por nombre">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#9aa6b2" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 21l-4.35-4.35"></path><circle cx="11" cy="11" r="6" stroke="#9aa6b2" stroke-width="2" fill="none"></circle></svg>
+          <input id="searchInput" type="search" placeholder="Buscar por nombre..." aria-label="Buscar pokémon por nombre" />
+          <button id="clearBtn" class="page-btn" title="Limpiar búsqueda" aria-label="Limpiar búsqueda">✖</button>
+        </div>
+        <div class="per-page" aria-hidden="true">
+          <label for="perPage" style="color:var(--muted);font-size:.9rem">Por página</label>
+          <select id="perPage" style="padding:8px;border-radius:8px;background:transparent;color:inherit;border:1px solid rgba(255,255,255,0.03);margin-left:6px">
+            <option value="12">12</option>
+            <option value="20" selected>20</option>
+            <option value="36">36</option>
+          </select>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div id="results" class="grid" aria-live="polite" aria-busy="false"></div>
+      <div id="pagination" class="pagination" aria-label="Paginación"></div>
+      <div id="status" class="footer-note"></div>
+    </main>
+  </div>
+  <script>
+    const API_BASE = 'https://pokeapi.co/api/v2';
+    let currentPage = 1;
+    let perPage = Number(document.getElementById('perPage').value) || 20;
+    let totalCount = 0;
+    let searchTerm = '';
+    let lastFetchId = 0;
+
+    const resultsEl = document.getElementById('results');
+    const paginationEl = document.getElementById('pagination');
+    const statusEl = document.getElementById('status');
+    const searchInput = document.getElementById('searchInput');
+    const perPageSelect = document.getElementById('perPage');
+    const clearBtn = document.getElementById('clearBtn');
+
+    function debounce(fn, delay=400){
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(()=> fn(...args), delay);
+      };
+    }
+
+    function setLoading(loading=true){
+      resultsEl.innerHTML = '';
+      paginationEl.innerHTML = '';
+      statusEl.textContent = '';
+      resultsEl.setAttribute('aria-busy', String(loading));
+      if(loading){
+        const spin = document.createElement('div');
+        spin.className = 'spinner';
+        resultsEl.appendChild(spin);
+      }
+    }
+
+    function renderCard(poke){
+      const card = document.createElement('article');
+      card.className = 'card';
+      card.tabIndex = 0;
+      card.setAttribute('aria-label', `Pokemon ${poke.name}`);
+
+      const imgWrap = document.createElement('div');
+      imgWrap.className = 'poke-img';
+
+      const img = document.createElement('img');
+      img.src = poke.image || '';
+      img.alt = poke.name;
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.loading = 'lazy';
+      img.title = 'Abrir imagen en nueva pestaña';
+      img.style.cursor = poke.image ? 'pointer' : 'default';
+      img.addEventListener('click', () => { if(poke.image) window.open(poke.image, '_blank', 'noopener'); });
+
+      card.addEventListener('keydown', (e) => {
+        if((e.key === 'Enter' || e.key === ' ') && poke.image) window.open(poke.image, '_blank', 'noopener');
+      });
+
+      imgWrap.appendChild(img);
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'poke-name';
+      nameEl.textContent = poke.name;
+
+      const idEl = document.createElement('div');
+      idEl.className = 'poke-id';
+      idEl.textContent = poke.id ? `#${poke.id}` : '';
+
+      card.appendChild(imgWrap);
+      card.appendChild(nameEl);
+      card.appendChild(idEl);
+
+      return card;
+    }
+
+    async function fetchList(page = 1, limit = 20){
+      const offset = (page - 1) * limit;
+      const res = await fetch(`${API_BASE}/pokemon?limit=${limit}&offset=${offset}`);
+      if(!res.ok) throw new Error('Error al obtener la lista');
+      return await res.json();
+    }
+
+    async function fetchDetailsFor(list){
+      const promises = list.map(item =>
+        fetch(item.url).then(r => r.json()).then(data => ({
+          name: data.name,
+          id: data.id,
+          image: data.sprites?.other?.['official-artwork']?.front_default || data.sprites?.front_default || ''
+        })).catch(_ => ({ name: item.name, id: null, image: '' }))
+      );
+      return await Promise.all(promises);
+    }
+
+    async function fetchByName(name){
+      const res = await fetch(`${API_BASE}/pokemon/${encodeURIComponent(name.toLowerCase())}`);
+      if(!res.ok) throw new Error('No encontrado');
+      const data = await res.json();
+      return {
+        name: data.name,
+        id: data.id,
+        image: data.sprites?.other?.['official-artwork']?.front_default || data.sprites?.front_default || ''
+      };
+    }
+
+    async function render(){
+      const currentFetch = ++lastFetchId;
+      setLoading(true);
+
+      try {
+        if(searchTerm && searchTerm.trim().length > 0){
+          try {
+            const p = await fetchByName(searchTerm.trim().toLowerCase());
+            if(currentFetch !== lastFetchId) return;
+            resultsEl.innerHTML = '';
+            resultsEl.appendChild(renderCard(p));
+            paginationEl.innerHTML = '';
+            statusEl.textContent = 'Resultado de búsqueda';
+          } catch {
+            resultsEl.innerHTML = '';
+            paginationEl.innerHTML = '';
+            statusEl.textContent = 'No se encontró ningún Pokémon con ese nombre.';
+          }
+          setLoading(false);
+          return;
+        }
+
+        const listData = await fetchList(currentPage, perPage);
+        totalCount = listData.count;
+        const details = await fetchDetailsFor(listData.results);
+        resultsEl.innerHTML = '';
+        if(details.length === 0){
+          resultsEl.innerHTML = '<div class="message">No hay resultados.</div>';
+        } else {
+          const fragment = document.createDocumentFragment();
+          details.forEach(p => fragment.appendChild(renderCard(p)));
+          resultsEl.appendChild(fragment);
+        }
+        renderPagination();
+        statusEl.textContent = `Mostrando ${Math.min((currentPage-1)*perPage+1, totalCount)} - ${Math.min(currentPage*perPage, totalCount)} de ${totalCount} pokémones.`;
+      } catch {
+        resultsEl.innerHTML = `<div class="message">Error cargando datos. Intenta recargar.</div>`;
+        paginationEl.innerHTML = '';
+        statusEl.textContent = '';
+      } finally {
+        resultsEl.setAttribute('aria-busy','false');
+      }
+    }
+
+    function renderPagination(){
+      paginationEl.innerHTML = '';
+      const totalPages = Math.ceil(totalCount / perPage) || 1;
+      const prev = document.createElement('button');
+      prev.className = 'page-btn';
+      prev.textContent = '« Anterior';
+      prev.disabled = currentPage <= 1;
+      prev.addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); render(); });
+      paginationEl.appendChild(prev);
+
+      const maxButtons = 7;
+      let start = Math.max(1, currentPage - Math.floor(maxButtons/2));
+      let end = Math.min(totalPages, start + maxButtons - 1);
+      if(end - start < maxButtons - 1) start = Math.max(1, end - maxButtons + 1);
+      for(let i = start; i <= end; i++){
+        const btn = document.createElement('button');
+        btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+        btn.textContent = i;
+        btn.disabled = i === currentPage;
+        btn.addEventListener('click', () => { currentPage = i; render(); });
+        paginationEl.appendChild(btn);
+      }
+
+      const next = document.createElement('button');
+      next.className = 'page-btn';
+      next.textContent = 'Siguiente »';
+      next.disabled = currentPage >= totalPages;
+      next.addEventListener('click', () => { currentPage = Math.min(totalPages, currentPage + 1); render(); });
+      paginationEl.appendChild(next);
+    }
+
+    searchInput.addEventListener('input', debounce((e) => {
+      searchTerm = e.target.value.trim();
+      currentPage = 1;
+      render();
+    }, 450));
+
+    clearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      searchTerm = '';
+      currentPage = 1;
+      render();
+    });
+
+    perPageSelect.addEventListener('change', (e) => {
+      perPage = Number(e.target.value) || 20;
+      currentPage = 1;
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
